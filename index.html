@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Snowy Surprise</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at top, #c9e6ff, #4a6fa5);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .card {
+      position: relative;
+      width: min(90vw, 600px);
+      aspect-ratio: 4 / 5;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+      background: #000;
+    }
+
+    .gift-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    #snowCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: url("penguin-mop.png") 32 32, auto; /* 👈 replace with your penguin image */
+    }
+
+    .hint {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.55);
+      color: #f8f9ff;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+      animation: hintPulse 2.5s ease-in-out infinite;
+    }
+
+    @keyframes hintPulse {
+      0%, 100% { opacity: 0.95; transform: translateX(-50%) translateY(0); }
+      50% { opacity: 0.6; transform: translateX(-50%) translateY(2px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <!-- 👇 Put your gift image file in the same folder and set the src -->
+    <img src="gift.jpg" alt="Your surprise gift" class="gift-image" />
+
+    <canvas id="snowCanvas"></canvas>
+
+    <div class="hint">Move the penguin to clear the snow 🐧</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("snowCanvas");
+    const ctx = canvas.getContext("2d");
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+      drawSnow();
+    }
+
+    function drawSnow() {
+      const w = canvas.width / window.devicePixelRatio;
+      const h = canvas.height / window.devicePixelRatio;
+
+      // Base snow layer
+      const gradient = ctx.createLinearGradient(0, 0, 0, h);
+      gradient.addColorStop(0, "#f9fdff");
+      gradient.addColorStop(0.4, "#f3f7ff");
+      gradient.addColorStop(1, "#e0ecff");
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, w, h);
+
+      // Fluffy snow blobs / texture
+      for (let i = 0; i < 200; i++) {
+        const x = Math.random() * w;
+        const y = Math.random() * h;
+        const radius = 6 + Math.random() * 18;
+        const alpha = 0.15 + Math.random() * 0.35;
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Some small speckle “snow”
+      for (let i = 0; i < 350; i++) {
+        const x = Math.random() * w;
+        const y = Math.random() * h;
+        const alpha = 0.1 + Math.random() * 0.4;
+        ctx.fillStyle = `rgba(230,240,255,${alpha})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    let isDrawing = false;
+
+    function eraseAt(x, y) {
+      const rect = canvas.getBoundingClientRect();
+      const px = x - rect.left;
+      const py = y - rect.top;
+
+      const radius = 40; // size of the “mop”
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.beginPath();
+      ctx.arc(px, py, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Mouse events
+    canvas.addEventListener("mousedown", (e) => {
+      isDrawing = true;
+      eraseAt(e.clientX, e.clientY);
+    });
+
+    canvas.addEventListener("mousemove", (e) => {
+      if (!isDrawing) return;
+      eraseAt(e.clientX, e.clientY);
+    });
+
+    window.addEventListener("mouseup", () => {
+      isDrawing = false;
+    });
+
+    // Touch events (for phones/tablets)
+    canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      isDrawing = true;
+      const touch = e.touches[0];
+      eraseAt(touch.clientX, touch.clientY);
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      if (!isDrawing) return;
+      const touch = e.touches[0];
+      eraseAt(touch.clientX, touch.clientY);
+    }, { passive: false });
+
+    window.addEventListener("touchend", () => {
+      isDrawing = false;
+    });
+
+    // Init
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+  </script>
+</body>
+</html>
