@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Snowy Surprise</title>
+  <title>✨ Secret Snowy Surprise ✨</title>
   <style>
     * {
       box-sizing: border-box;
@@ -13,20 +13,62 @@
     body {
       min-height: 100vh;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      background: radial-gradient(circle at top, #c9e6ff, #4a6fa5);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      justify-content: flex-start;
+      padding-top: 30px;
+      background:
+        radial-gradient(circle at top, #334, #000),
+        repeating-linear-gradient(
+          45deg,
+          #000 0,
+          #000 10px,
+          #001133 10px,
+          #001133 20px
+        );
+      color: #fff;
+      font-family: "Comic Sans MS", "Trebuchet MS", system-ui, sans-serif;
+      text-align: center;
     }
 
-    .card {
+    .title {
+      font-size: 28px;
+      margin-bottom: 10px;
+      text-shadow: 0 0 8px #ff66ff, 0 0 12px #66ccff;
+    }
+
+    .subtitle {
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    .marquee-wrapper {
+      width: 100%;
+      max-width: 520px;
+      margin-bottom: 16px;
+      border: 3px double #ffccff;
+      background: rgba(15, 8, 40, 0.85);
+      box-shadow: 0 0 10px #ff99ff;
+    }
+
+    marquee {
+      font-size: 13px;
+      color: #ffebff;
+    }
+
+    .frame {
       position: relative;
-      width: min(90vw, 600px);
-      aspect-ratio: 4 / 5;
-      border-radius: 24px;
+      width: min(90vw, 480px);
+      aspect-ratio: 4 / 3;
+      margin-bottom: 14px;
+      border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
       background: #000;
+      image-rendering: pixelated;
+      border: 6px ridge #ffddff;
+      box-shadow:
+        0 0 0 3px #99ddff inset,
+        0 0 22px #ff99ff;
     }
 
     .gift-image {
@@ -36,116 +78,157 @@
       display: block;
     }
 
-    #snowCanvas {
+    canvas {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
       display: block;
-      cursor: url("test_pingu.png") 32 32, auto; /* 👈 replace with your penguin image */
+    }
+
+    /* 👇 You'll plug in your penguin cursor image here */
+    #maskCanvas {
+      cursor: url("penguin-cursor.png") 16 16, auto;
+    }
+
+    /* Falling snow should not block pointer events */
+    #flakesCanvas {
+      pointer-events: none;
     }
 
     .hint {
-      position: absolute;
-      bottom: 14px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.55);
-      color: #f8f9ff;
-      padding: 6px 14px;
-      border-radius: 999px;
-      font-size: 0.8rem;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      backdrop-filter: blur(6px);
-      pointer-events: none;
-      animation: hintPulse 2.5s ease-in-out infinite;
+      font-size: 11px;
+      opacity: 0.85;
+      text-shadow: 0 0 4px #000;
     }
 
-    @keyframes hintPulse {
-      0%, 100% { opacity: 0.95; transform: translateX(-50%) translateY(0); }
-      50% { opacity: 0.6; transform: translateX(-50%) translateY(2px); }
+    .sparkle-border {
+      position: absolute;
+      inset: -2px;
+      border-radius: 14px;
+      pointer-events: none;
+      border: 2px dashed rgba(255, 255, 255, 0.7);
+      animation: glitter 1.8s linear infinite;
+    }
+
+    @keyframes glitter {
+      0% { box-shadow: 0 0 4px #fff, 0 0 10px #ff66ff; }
+      50% { box-shadow: 0 0 8px #99ddff, 0 0 16px #ffccff; }
+      100% { box-shadow: 0 0 4px #fff, 0 0 10px #ff66ff; }
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <!-- 👇 Put your gift image file in the same folder and set the src -->
-    <img src="G1000PFDHero_900x (1).webp" alt="Your surprise gift" class="gift-image" />
+  <div class="title">❄️ A Very Secret Snowy Surprise ❄️</div>
+  <div class="subtitle">(Move the penguin to brush away the snow!)</div>
 
-    <canvas id="snowCanvas"></canvas>
+  <div class="marquee-wrapper">
+    <marquee behavior="scroll" direction="left" scrollamount="4">
+      Move your little penguin friend over the snow to reveal your secret gift… ⛄🐧
+    </marquee>
+  </div>
 
-    <div class="hint">Move the penguin to clear the snow 🐧</div>
+  <div class="frame">
+    <!-- 👇 1) PUT YOUR GIFT IMAGE HERE -->
+    <!-- Replace "gift.jpg" with the actual file name of your gift picture -->
+    <img src="gift.jpg" alt="Secret Gift" class="gift-image" />
+
+    <!-- 👇 2) SCRATCH-OFF SNOW MASK CANVAS -->
+    <canvas id="maskCanvas"></canvas>
+
+    <!-- 👇 3) FALLING SNOW ANIMATION CANVAS -->
+    <canvas id="flakesCanvas"></canvas>
+
+    <div class="sparkle-border"></div>
+  </div>
+
+  <div class="hint">
+    Tip: use your mouse (or finger on mobile) to slowly reveal what's hiding under the snow…
   </div>
 
   <script>
-    const canvas = document.getElementById("snowCanvas");
-    const ctx = canvas.getContext("2d");
+    const maskCanvas = document.getElementById("maskCanvas");
+    const maskCtx = maskCanvas.getContext("2d");
 
-    function resizeCanvas() {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * window.devicePixelRatio;
-      canvas.height = rect.height * window.devicePixelRatio;
-      ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
-      drawSnow();
-    }
-
-    function drawSnow() {
-      const w = canvas.width / window.devicePixelRatio;
-      const h = canvas.height / window.devicePixelRatio;
-
-      // Base snow layer
-      const gradient = ctx.createLinearGradient(0, 0, 0, h);
-      gradient.addColorStop(0, "#f9fdff");
-      gradient.addColorStop(0.4, "#f3f7ff");
-      gradient.addColorStop(1, "#e0ecff");
-      ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, w, h);
-
-      // Fluffy snow blobs / texture
-      for (let i = 0; i < 200; i++) {
-        const x = Math.random() * w;
-        const y = Math.random() * h;
-        const radius = 6 + Math.random() * 18;
-        const alpha = 0.15 + Math.random() * 0.35;
-        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Some small speckle “snow”
-      for (let i = 0; i < 350; i++) {
-        const x = Math.random() * w;
-        const y = Math.random() * h;
-        const alpha = 0.1 + Math.random() * 0.4;
-        ctx.fillStyle = `rgba(230,240,255,${alpha})`;
-        ctx.fillRect(x, y, 2, 2);
-      }
-    }
+    const flakesCanvas = document.getElementById("flakesCanvas");
+    const flakesCtx = flakesCanvas.getContext("2d");
 
     let isDrawing = false;
+    const brushRadius = 16; // small-ish brush size
 
-    function eraseAt(x, y) {
-      const rect = canvas.getBoundingClientRect();
-      const px = x - rect.left;
-      const py = y - rect.top;
+    // --------- RESIZE & INIT CANVASES ----------
+    function resizeCanvases() {
+      const rect = maskCanvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
 
-      const radius = 40; // size of the “mop”
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.beginPath();
-      ctx.arc(px, py, radius, 0, Math.PI * 2);
-      ctx.fill();
+      // Mask canvas
+      maskCanvas.width = rect.width * dpr;
+      maskCanvas.height = rect.height * dpr;
+      maskCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Flakes canvas
+      flakesCanvas.width = rect.width * dpr;
+      flakesCanvas.height = rect.height * dpr;
+      flakesCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      drawPixelSnow();
+      initFlakes(rect.width, rect.height);
     }
 
-    // Mouse events
-    canvas.addEventListener("mousedown", (e) => {
+    // --------- DRAW PIXELATED SNOW MASK ----------
+    function drawPixelSnow() {
+      const rect = maskCanvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      // clear
+      maskCtx.globalCompositeOperation = "source-over";
+      maskCtx.clearRect(0, 0, w, h);
+
+      // base pale blue/white background
+      maskCtx.fillStyle = "#f5fbff";
+      maskCtx.fillRect(0, 0, w, h);
+
+      // pixel blocks
+      const tile = 16; // size of pixel blocks
+      for (let y = 0; y < h; y += tile) {
+        for (let x = 0; x < w; x += tile) {
+          const r = 230 + Math.floor(Math.random() * 25);
+          const g = 240 + Math.floor(Math.random() * 15);
+          const b = 255;
+          const alpha = 0.7 + Math.random() * 0.3;
+          maskCtx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+          maskCtx.fillRect(x, y, tile, tile);
+        }
+      }
+
+      // add some “shadow” near bottom, like a pile
+      const gradient = maskCtx.createLinearGradient(0, h * 0.4, 0, h);
+      gradient.addColorStop(0, "rgba(180, 200, 255, 0)");
+      gradient.addColorStop(1, "rgba(180, 200, 255, 0.7)");
+      maskCtx.fillStyle = gradient;
+      maskCtx.fillRect(0, h * 0.4, w, h * 0.6);
+    }
+
+    // --------- SCRATCH-OFF LOGIC ----------
+    function eraseAt(clientX, clientY) {
+      const rect = maskCanvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+
+      maskCtx.globalCompositeOperation = "destination-out";
+      maskCtx.beginPath();
+      maskCtx.arc(x, y, brushRadius, 0, Math.PI * 2);
+      maskCtx.fill();
+    }
+
+    // Mouse
+    maskCanvas.addEventListener("mousedown", (e) => {
       isDrawing = true;
       eraseAt(e.clientX, e.clientY);
     });
 
-    canvas.addEventListener("mousemove", (e) => {
+    maskCanvas.addEventListener("mousemove", (e) => {
       if (!isDrawing) return;
       eraseAt(e.clientX, e.clientY);
     });
@@ -154,28 +237,83 @@
       isDrawing = false;
     });
 
-    // Touch events (for phones/tablets)
-    canvas.addEventListener("touchstart", (e) => {
-      e.preventDefault();
-      isDrawing = true;
-      const touch = e.touches[0];
-      eraseAt(touch.clientX, touch.clientY);
-    }, { passive: false });
+    // Touch
+    maskCanvas.addEventListener(
+      "touchstart",
+      (e) => {
+        e.preventDefault();
+        isDrawing = true;
+        const touch = e.touches[0];
+        eraseAt(touch.clientX, touch.clientY);
+      },
+      { passive: false }
+    );
 
-    canvas.addEventListener("touchmove", (e) => {
-      e.preventDefault();
-      if (!isDrawing) return;
-      const touch = e.touches[0];
-      eraseAt(touch.clientX, touch.clientY);
-    }, { passive: false });
+    maskCanvas.addEventListener(
+      "touchmove",
+      (e) => {
+        e.preventDefault();
+        if (!isDrawing) return;
+        const touch = e.touches[0];
+        eraseAt(touch.clientX, touch.clientY);
+      },
+      { passive: false }
+    );
 
     window.addEventListener("touchend", () => {
       isDrawing = false;
     });
 
-    // Init
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
+    // --------- FALLING SNOW ANIMATION ----------
+    let flakes = [];
+    function initFlakes(width, height) {
+      const count = 80; // number of flakes
+      flakes = [];
+      for (let i = 0; i < count; i++) {
+        flakes.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          size: 2 + Math.random() * 3,
+          speedY: 0.4 + Math.random() * 0.7,
+          driftX: (Math.random() - 0.5) * 0.3,
+        });
+      }
+    }
+
+    function animateSnow() {
+      const rect = flakesCanvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      flakesCtx.clearRect(0, 0, w, h);
+
+      flakesCtx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      for (let flake of flakes) {
+        flakesCtx.beginPath();
+        flakesCtx.arc(flake.x, flake.y, flake.size, 0, Math.PI * 2);
+        flakesCtx.fill();
+
+        flake.y += flake.speedY;
+        flake.x += flake.driftX;
+
+        if (flake.y > h + 5) {
+          flake.y = -10;
+          flake.x = Math.random() * w;
+        }
+        if (flake.x < -10) flake.x = w + 10;
+        if (flake.x > w + 10) flake.x = -10;
+      }
+
+      requestAnimationFrame(animateSnow);
+    }
+
+    // --------- INIT ---------
+    window.addEventListener("resize", resizeCanvases);
+    resizeCanvases();
+    requestAnimationFrame(animateSnow);
+
+    // OPTIONAL: also set penguin cursor for whole page
+    document.body.style.cursor = 'url("penguin-cursor.png") 16 16, auto';
   </script>
 </body>
 </html>
