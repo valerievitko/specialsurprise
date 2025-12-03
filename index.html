@@ -1,1 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Snowy Secret</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0a1024;
+      color: #ffffff;
+      font-family: "Press Start 2P", "Courier New", monospace;
+      image-rendering: pixelated;
+    }
+
+    .frame {
+      position: relative;
+      width: min(95vw, 640px);
+      aspect-ratio: 4 / 3;
+      background: #10162e;
+      overflow: hidden;
+      image-rendering: pixelated;
+      border: 4px solid #ffffff;
+      box-shadow: 0 0 0 2px #050814 inset;
+    }
+
+    .scene-bg {
+      position: absolute;
+      inset: 0;
+    }
+
+    .gift-area {
+      position: absolute;
+      left: 18%;
+      top: 25%;
+      width: 64%;
+      height: 50%;
+      overflow: hidden;
+    }
+
+    .gift-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    /* Desktop custom cursor for snow mask – using your penguin file */
+    #maskCanvas {
+      cursor: url("pixil-frame-0 (3).png") 32 32, auto;
+    }
+
+    #flakesCanvas {
+      pointer-events: none;
+    }
+
+    .sign {
+      margin-top: 14px;
+      padding: 6px 12px;
+      border: 3px solid #ffffff;
+      background: #050814;
+      font-size: 10px;
+      text-align: center;
+      max-width: 640px;
+    }
+
+    /* Bigger Pingiuno sprite for mobile */
+    #penguinSprite {
+      position: fixed;
+      width: 64px;
+      height: 64px;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 9999;
+      display: none;
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <canvas id="bgCanvas" class="scene-bg"></canvas>
+
+    <div class="gift-area">
+      <img src="G1000PFDHero_900x (1).webp" alt="Secret Gift" class="gift-image" />
+    </div>
+
+    <canvas id="maskCanvas"></canvas>
+    <canvas id="flakesCanvas"></canvas>
+  </div>
+
+  <!-- used only on touch devices -->
+  <img id="penguinSprite" src="pixil-frame-0 (3).png" alt="Pingiuno" />
+
+  <div class="sign">
+    HELP PINGIUNO CLEAR THE SNOW...
+  </div>
+
+  <script>
+    const bgCanvas = document.getElementById("bgCanvas");
+    const bgCtx = bgCanvas.getContext("2d");
+
+    const maskCanvas = document.getElementById("maskCanvas");
+    const maskCtx = maskCanvas.getContext("2d");
+
+    const flakesCanvas = document.getElementById("flakesCanvas");
+    const flakesCtx = flakesCanvas.getContext("2d");
+
+    const penguinSprite = document.getElementById("penguinSprite");
+
+    let isDrawing = false;
+    const brushRadius = 10;
+
+    const isTouchDevice = window.matchMedia("(hover: none), (pointer: coarse)").matches;
+
+    // --- tree image sprite ---
+    let treeImg = new Image();
+    let treeLoaded = false;
+    treeImg.src = "pixil-frame-0 (4).png";   // your tree sprite
+    treeImg.onload = () => {
+      treeLoaded = true;
+      resizeAll(); // redraw once trees are ready
+    };
+
+    function resizeAll() {
+      const rect = maskCanvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      [bgCanvas, maskCanvas, flakesCanvas].forEach((c) => {
+        c.width = rect.width * dpr;
+        c.height = rect.height * dpr;
+      });
+
+      bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      maskCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      flakesCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      drawBackground();
+      drawSnowMask();
+      initFlakes(rect.width, rect.height);
+    }
+
+    function getPileRect() {
+      const rect = maskCanvas.getBoundingClientRect();
+      return {
+        x: rect.width * 0.18,
+        y: rect.height * 0.25,
+        w: rect.width * 0.64,
+        h: rect.height * 0.50
+      };
+    }
+
+    // ---- Pingiuno sprite (only on touch devices) ----
+    function showPenguinAt(x, y) {
+      if (!penguinSprite || !isTouchDevice) return;
+      penguinSprite.style.display = "block";
+      penguinSprite.style.left = x + "px";
+      penguinSprite.style.top = y + "px";
+    }
+
+    if (isTouchDevice) {
+      document.addEventListener("touchmove", (e) => {
+        const t = e.touches[0];
+        showPenguinAt(t.clientX, t.clientY);
+      }, { passive: false });
+
+      document.addEventListener("touchend", () => {
+        if (penguinSprite) penguinSprite.style.display = "none";
+      });
+    }
+
+    // ---- Draw background with tree image borders ----
+    function drawBackground() {
+      const rect = bgCanvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      // sky gradient
+      for (let y = 0; y < h; y++) {
+        const ratio = y / h;
+        const c = Math.floor(12 + 40 * ratio);
+        bgCtx.strokeStyle = `rgb(${c},${c + 10},${c + 30})`;
+        bgCtx.beginPath();
+        bgCtx.moveTo(0, y);
+        bgCtx.lineTo(w, y);
+        bgCtx.stroke();
+      }
+
+      const midY0 = h * 0.25;
+      const midY1 = h * 0.75;
+
+      // snow strip
+      bgCtx.fillStyle = "#788aa8";
+      bgCtx.fillRect(0, midY0, w, midY1 - midY0);
+
+      if (!treeLoaded) return; // wait until image is ready
+
+      const tw = treeImg.width;
+      const th = treeImg.height;
+
+      // scale tree sprite to fit nicely relative to canvas width
+      const baseScale = w / 640; // roughly 1 at 640px wide
+      const s = baseScale * 1.1;
+      const drawW = tw * s;
+      const drawH = th * s;
+
+      // Top border: row of trees touching each other
+      const topY = midY0 - drawH + 10;
+      for (let x = -drawW; x < w + drawW; x += drawW - 4) {
+        bgCtx.drawImage(treeImg, x, topY, drawW, drawH);
+      }
+
+      // Bottom border
+      const bottomY = midY1 - 10;
+      for (let x = -drawW; x < w + drawW; x += drawW - 4) {
+        bgCtx.drawImage(treeImg, x, bottomY, drawW, drawH);
+      }
+
+      // Left border (stacked vertically)
+      const leftX = -drawW / 2 + 4;
+      for (let y = midY0; y < midY1 + drawH; y += drawH - 8) {
+        bgCtx.drawImage(treeImg, leftX, y - drawH / 2, drawW, drawH);
+      }
+
+      // Right border
+      const rightX = w - drawW / 2 - 4;
+      for (let y = midY0; y < midY1 + drawH; y += drawH - 8) {
+        bgCtx.drawImage(treeImg, rightX, y - drawH / 2, drawW, drawH);
+      }
+    }
+
+    // ---- Snow mask only over pile ----
+    function drawSnowMask() {
+      const rect = maskCanvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      const pile = getPileRect();
+
+      maskCtx.globalCompositeOperation = "source-over";
+      maskCtx.clearRect(0, 0, w, h);
+
+      const tile = 10;
+      for (let y = pile.y; y < pile.y + pile.h; y += tile) {
+        for (let x = pile.x; x < pile.x + pile.w; x += tile) {
+          const colors = ["#c8d8f4", "#d7e4ff", "#b4c6e6", "#e0ecff"];
+          const c = colors[Math.floor(Math.random() * colors.length)];
+          maskCtx.fillStyle = c;
+          maskCtx.fillRect(x, y, tile, tile);
+        }
+      }
+
+      maskCtx.fillStyle = "#eaf2ff";
+      maskCtx.fillRect(pile.x, pile.y, pile.w, 4);
+      maskCtx.fillStyle = "#9fb0cf";
+      maskCtx.fillRect(pile.x, pile.y + pile.h - 4, pile.w, 4);
+    }
+
+    function eraseAt(clientX, clientY) {
+      const rect = maskCanvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      const pile = getPileRect();
+
+      if (
+        x < pile.x || x > pile.x + pile.w ||
+        y < pile.y || y > pile.y + pile.h
+      ) {
+        return;
+      }
+
+      maskCtx.globalCompositeOperation = "destination-out";
+      maskCtx.beginPath();
+      maskCtx.arc(x, y, brushRadius, 0, Math.PI * 2);
+      maskCtx.fill();
+    }
+
+    // Mouse (desktop)
+    maskCanvas.addEventListener("mousedown", (e) => {
+      isDrawing = true;
+      eraseAt(e.clientX, e.clientY);
+    });
+
+    maskCanvas.addEventListener("mousemove", (e) => {
+      if (!isDrawing) return;
+      eraseAt(e.clientX, e.clientY);
+    });
+
+    window.addEventListener("mouseup", () => {
+      isDrawing = false;
+    });
+
+    // Touch (mobile)
+    maskCanvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      isDrawing = true;
+      const t = e.touches[0];
+      eraseAt(t.clientX, t.clientY);
+    }, { passive: false });
+
+    maskCanvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      if (!isDrawing) return;
+      const t = e.touches[0];
+      eraseAt(t.clientX, t.clientY);
+    }, { passive: false });
+
+    window.addEventListener("touchend", () => {
+      isDrawing = false;
+    });
+
+    // ---- Falling snow ----
+    let flakes = [];
+    function initFlakes(width, height) {
+      const count = 220;
+      flakes = [];
+      for (let i = 0; i < count; i++) {
+        flakes.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          size: 1 + Math.random() * 2,
+          speedY: 0.4 + Math.random() * 0.8,
+          driftX: (Math.random() - 0.5) * 0.25
+        });
+      }
+    }
+
+    function animateSnow() {
+      const rect = flakesCanvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      flakesCtx.clearRect(0, 0, w, h);
+      flakesCtx.fillStyle = "#ffffff";
+
+      for (let flake of flakes) {
+        flakesCtx.fillRect(flake.x, flake.y, flake.size, flake.size);
+
+        flake.y += flake.speedY;
+        flake.x += flake.driftX;
+
+        if (flake.y > h + 5) {
+          flake.y = -10;
+          flake.x = Math.random() * w;
+        }
+        if (flake.x < -10) flake.x = w + 10;
+        if (flake.x > w + 10) flake.x = -10;
+      }
+
+      requestAnimationFrame(animateSnow);
+    }
+
+    // ---- init ----
+    window.addEventListener("resize", resizeAll);
+    resizeAll();
+    requestAnimationFrame(animateSnow);
+  </script>
+</body>
+</html>
