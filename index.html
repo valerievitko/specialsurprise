@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <title>Snowy Secret</title>
-  <!-- Pixel font for the sign -->
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
   <style>
     * {
@@ -40,7 +39,6 @@
       inset: 0;
     }
 
-    /* Only the central pile area has the gift underneath */
     .gift-area {
       position: absolute;
       left: 18%;
@@ -48,9 +46,6 @@
       width: 64%;
       height: 50%;
       overflow: hidden;
-      /* for debugging: outline; remove if you want
-      outline: 1px dashed rgba(255,255,255,0.3);
-      */
     }
 
     .gift-image {
@@ -69,7 +64,7 @@
       image-rendering: pixelated;
     }
 
-    /* Desktop cursor for the snow mask (Pingiuno) */
+    /* Desktop custom cursor for snow mask */
     #maskCanvas {
       cursor: url("pixil-frame-0 (3).png") 16 16, auto;
     }
@@ -88,7 +83,7 @@
       max-width: 640px;
     }
 
-    /* Pingiuno sprite that follows mouse/finger (for mobile especially) */
+    /* Pingiuno sprite for mobile */
     #penguinSprite {
       position: fixed;
       width: 48px;
@@ -103,23 +98,17 @@
 </head>
 <body>
   <div class="frame">
-    <!-- Pixel background (trees, snow) -->
     <canvas id="bgCanvas" class="scene-bg"></canvas>
 
-    <!-- Central pile: only here the gift is hidden -->
     <div class="gift-area">
-      <!-- Your gift image -->
       <img src="G1000PFDHero_900x (1).webp" alt="Secret Gift" class="gift-image" />
     </div>
 
-    <!-- Snow mask over the pile -->
     <canvas id="maskCanvas"></canvas>
-
-    <!-- Falling snow -->
     <canvas id="flakesCanvas"></canvas>
   </div>
 
-  <!-- Pingiuno sprite that follows touch/mouse (helps on mobile) -->
+  <!-- used only on touch devices -->
   <img id="penguinSprite" src="pixil-frame-0 (3).png" alt="Pingiuno" />
 
   <div class="sign">
@@ -139,7 +128,9 @@
     const penguinSprite = document.getElementById("penguinSprite");
 
     let isDrawing = false;
-    const brushRadius = 10; // small brush
+    const brushRadius = 10;
+
+    const isTouchDevice = window.matchMedia("(hover: none), (pointer: coarse)").matches;
 
     function resizeAll() {
       const rect = maskCanvas.getBoundingClientRect();
@@ -159,7 +150,6 @@
       initFlakes(rect.width, rect.height);
     }
 
-    // central pile rect in relative percentages
     function getPileRect() {
       const rect = maskCanvas.getBoundingClientRect();
       return {
@@ -170,42 +160,42 @@
       };
     }
 
-    // ---------- Pingiuno sprite follow (for mobile + desktop) ----------
+    // ---- Pingiuno sprite (only on touch devices) ----
     function showPenguinAt(x, y) {
-      if (!penguinSprite) return;
+      if (!penguinSprite || !isTouchDevice) return;
       penguinSprite.style.display = "block";
       penguinSprite.style.left = x + "px";
       penguinSprite.style.top = y + "px";
     }
 
-    document.addEventListener("mousemove", (e) => {
-      showPenguinAt(e.clientX, e.clientY);
-    });
+    if (isTouchDevice) {
+      document.addEventListener("touchmove", (e) => {
+        const t = e.touches[0];
+        showPenguinAt(t.clientX, t.clientY);
+      }, { passive: false });
 
-    document.addEventListener("touchmove", (e) => {
-      const t = e.touches[0];
-      showPenguinAt(t.clientX, t.clientY);
-    }, { passive: false });
+      document.addEventListener("touchend", () => {
+        if (penguinSprite) penguinSprite.style.display = "none";
+      });
+    }
 
-    document.addEventListener("touchend", () => {
-      if (penguinSprite) penguinSprite.style.display = "none";
-    });
-
-    // ---------- pixel trees + snow background (lush border) ----------
+    // ---- Bushy tree drawing ----
     function drawTree(ctx, cx, cy, scale) {
       // trunk
       ctx.fillStyle = "#3c281e";
-      ctx.fillRect(cx - 2 * scale, cy + 6 * scale, 4 * scale, 8 * scale);
-      // foliage
-      const colors = ["#204930", "#2f6a42", "#3c8557"];
-      for (let i = 0; i < colors.length; i++) {
+      ctx.fillRect(cx - 2 * scale, cy + 8 * scale, 4 * scale, 10 * scale);
+
+      // more foliage layers to make it bushy
+      const colors = ["#1c3f2b", "#255738", "#2f7448", "#3c8b5a"];
+      const layers = colors.length;
+      for (let i = 0; i < layers; i++) {
         ctx.fillStyle = colors[i];
-        const yy = cy - i * 4 * scale;
-        const half = (10 - i * 2) * scale;
+        const yy = cy - i * 5 * scale;
+        const half = (13 - i * 2) * scale; // wider base
         ctx.beginPath();
-        ctx.moveTo(cx, yy - 6 * scale);
-        ctx.lineTo(cx - half, yy + 6 * scale);
-        ctx.lineTo(cx + half, yy + 6 * scale);
+        ctx.moveTo(cx, yy - 7 * scale);
+        ctx.lineTo(cx - half, yy + 7 * scale);
+        ctx.lineTo(cx + half, yy + 7 * scale);
         ctx.closePath();
         ctx.fill();
       }
@@ -230,32 +220,34 @@
       const midY0 = h * 0.25;
       const midY1 = h * 0.75;
 
-      // middle snow strip
+      // snow strip
       bgCtx.fillStyle = "#788aa8";
       bgCtx.fillRect(0, midY0, w, midY1 - midY0);
 
-      // top tree border (dense)
-      for (let x = 0; x < w + 32; x += 32) {
-        drawTree(bgCtx, x, midY0 - 40, 1);
+      // top border: two rows of trees, close together
+      for (let x = -16; x < w + 16; x += 24) {
+        drawTree(bgCtx, x, midY0 - 36, 1.1);
+        drawTree(bgCtx, x + 12, midY0 - 18, 1);
       }
 
-      // bottom tree border (dense)
-      for (let x = 0; x < w + 32; x += 32) {
-        drawTree(bgCtx, x, midY1 + 20, 1);
+      // bottom border: two rows
+      for (let x = -16; x < w + 16; x += 24) {
+        drawTree(bgCtx, x + 10, midY1 + 26, 1.1);
+        drawTree(bgCtx, x, midY1 + 42, 1);
       }
 
       // left side border
-      for (let y = midY0 + 10; y < midY1 - 10; y += 40) {
-        drawTree(bgCtx, 24, y, 1);
+      for (let y = midY0 + 4; y < midY1 - 4; y += 26) {
+        drawTree(bgCtx, 24, y, 1.1);
       }
 
       // right side border
-      for (let y = midY0 + 10; y < midY1 - 10; y += 40) {
-        drawTree(bgCtx, w - 24, y, 1);
+      for (let y = midY0 + 4; y < midY1 - 4; y += 26) {
+        drawTree(bgCtx, w - 24, y, 1.1);
       }
     }
 
-    // ---------- snow mask only over central pile ----------
+    // ---- Snow mask only over pile ----
     function drawSnowMask() {
       const rect = maskCanvas.getBoundingClientRect();
       const w = rect.width;
@@ -275,7 +267,6 @@
         }
       }
 
-      // subtle top and bottom shading for pile
       maskCtx.fillStyle = "#eaf2ff";
       maskCtx.fillRect(pile.x, pile.y, pile.w, 4);
       maskCtx.fillStyle = "#9fb0cf";
@@ -288,7 +279,6 @@
       const y = clientY - rect.top;
       const pile = getPileRect();
 
-      // only erase inside the pile
       if (
         x < pile.x || x > pile.x + pile.w ||
         y < pile.y || y > pile.y + pile.h
@@ -302,7 +292,7 @@
       maskCtx.fill();
     }
 
-    // Mouse events
+    // Mouse (desktop)
     maskCanvas.addEventListener("mousedown", (e) => {
       isDrawing = true;
       eraseAt(e.clientX, e.clientY);
@@ -317,7 +307,7 @@
       isDrawing = false;
     });
 
-    // Touch events
+    // Touch (mobile)
     maskCanvas.addEventListener("touchstart", (e) => {
       e.preventDefault();
       isDrawing = true;
@@ -336,7 +326,7 @@
       isDrawing = false;
     });
 
-    // ---------- falling snow ----------
+    // ---- Falling snow ----
     let flakes = [];
     function initFlakes(width, height) {
       const count = 220;
@@ -377,7 +367,7 @@
       requestAnimationFrame(animateSnow);
     }
 
-    // ---------- init ----------
+    // ---- init ----
     window.addEventListener("resize", resizeAll);
     resizeAll();
     requestAnimationFrame(animateSnow);
