@@ -64,7 +64,7 @@
       image-rendering: pixelated;
     }
 
-    /* Desktop custom cursor for snow mask – using your penguin file */
+    /* Desktop Pingiuno cursor */
     #maskCanvas {
       cursor: url("pixil-frame-0 (3).png") 32 32, auto;
     }
@@ -132,15 +132,6 @@
 
     const isTouchDevice = window.matchMedia("(hover: none), (pointer: coarse)").matches;
 
-    // --- tree image sprite ---
-    let treeImg = new Image();
-    let treeLoaded = false;
-    treeImg.src = "pixil-frame-0 (4).png";   // your tree sprite
-    treeImg.onload = () => {
-      treeLoaded = true;
-      resizeAll(); // redraw once trees are ready
-    };
-
     function resizeAll() {
       const rect = maskCanvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -188,7 +179,67 @@
       });
     }
 
-    // ---- Draw background with tree image borders ----
+    // ---- PIXEL TREE FUNCTION (the one from your preview) ----
+    function drawPixelTree(ctx, cx, cy, s = 1) {
+      // shadow base
+      ctx.fillStyle = "#0a1212";
+      ctx.fillRect(cx - 10 * s, cy + 16 * s, 20 * s, 2 * s);
+
+      // trunk
+      ctx.fillStyle = "#3c2a1e";
+      ctx.fillRect(cx - 2 * s, cy + 6 * s, 4 * s, 10 * s);
+
+      // layered foliage (dark → light)
+      const layers = [
+        { color: "#162e20", width: 24, y: 8 },
+        { color: "#1d462c", width: 30, y: 2 },
+        { color: "#25603c", width: 36, y: -4 },
+        { color: "#2d7650", width: 40, y: -10 }
+      ];
+
+      layers.forEach((layer, i) => {
+        const half = (layer.width / 2) * s;
+        const yy = cy - i * 4 * s + layer.y * s;
+
+        ctx.fillStyle = layer.color;
+        ctx.beginPath();
+        ctx.moveTo(cx, yy - 7 * s);
+        ctx.lineTo(cx - half, yy + 7 * s);
+        ctx.lineTo(cx + half, yy + 7 * s);
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      // snowy top cap
+      const topY = cy - 4 * s;
+
+      ctx.fillStyle = "#f2faff";
+      ctx.beginPath();
+      ctx.moveTo(cx, topY - 10 * s);
+      ctx.lineTo(cx - 8 * s, topY - 2 * s);
+      ctx.lineTo(cx + 8 * s, topY - 2 * s);
+      ctx.closePath();
+      ctx.fill();
+
+      // side snow blobs
+      ctx.fillStyle = "#e0eeff";
+
+      ctx.beginPath();
+      ctx.moveTo(cx - 10 * s, topY + 2 * s);
+      ctx.lineTo(cx - 4 * s, topY + 6 * s);
+      ctx.lineTo(cx - 1 * s, topY + 2 * s);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(cx + 10 * s, topY + 2 * s);
+      ctx.lineTo(cx + 4 * s, topY + 6 * s);
+      ctx.lineTo(cx + 1 * s, topY + 2 * s);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // ---- BACKGROUND WITH PIXEL TREES ----
     function drawBackground() {
       const rect = bgCanvas.getBoundingClientRect();
       const w = rect.width;
@@ -212,39 +263,26 @@
       bgCtx.fillStyle = "#788aa8";
       bgCtx.fillRect(0, midY0, w, midY1 - midY0);
 
-      if (!treeLoaded) return; // wait until image is ready
-
-      const tw = treeImg.width;
-      const th = treeImg.height;
-
-      // scale tree sprite to fit nicely relative to canvas width
-      const baseScale = w / 640; // roughly 1 at 640px wide
-      const s = baseScale * 1.1;
-      const drawW = tw * s;
-      const drawH = th * s;
-
-      // Top border: row of trees touching each other
-      const topY = midY0 - drawH + 10;
-      for (let x = -drawW; x < w + drawW; x += drawW - 4) {
-        bgCtx.drawImage(treeImg, x, topY, drawW, drawH);
+      // Dense top border (two staggered rows)
+      for (let x = -16; x < w + 16; x += 22) {
+        drawPixelTree(bgCtx, x,       midY0 - 34, 1.1);
+        drawPixelTree(bgCtx, x + 11,  midY0 - 16, 1.0);
       }
 
-      // Bottom border
-      const bottomY = midY1 - 10;
-      for (let x = -drawW; x < w + drawW; x += drawW - 4) {
-        bgCtx.drawImage(treeImg, x, bottomY, drawW, drawH);
+      // Dense bottom border
+      for (let x = -16; x < w + 16; x += 22) {
+        drawPixelTree(bgCtx, x + 10,  midY1 + 26, 1.1);
+        drawPixelTree(bgCtx, x,       midY1 + 40, 1.0);
       }
 
-      // Left border (stacked vertically)
-      const leftX = -drawW / 2 + 4;
-      for (let y = midY0; y < midY1 + drawH; y += drawH - 8) {
-        bgCtx.drawImage(treeImg, leftX, y - drawH / 2, drawW, drawH);
+      // Left side border
+      for (let y = midY0; y < midY1; y += 24) {
+        drawPixelTree(bgCtx, 26, y, 1.1);
       }
 
-      // Right border
-      const rightX = w - drawW / 2 - 4;
-      for (let y = midY0; y < midY1 + drawH; y += drawH - 8) {
-        bgCtx.drawImage(treeImg, rightX, y - drawH / 2, drawW, drawH);
+      // Right side border
+      for (let y = midY0; y < midY1; y += 24) {
+        drawPixelTree(bgCtx, w - 26, y, 1.1);
       }
     }
 
