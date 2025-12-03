@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Snowy Secret</title>
-  <!-- Optional pixel font -->
+  <!-- Pixel font for the sign -->
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
   <style>
     * {
@@ -40,6 +40,7 @@
       inset: 0;
     }
 
+    /* Only the central pile area has the gift underneath */
     .gift-area {
       position: absolute;
       left: 18%;
@@ -47,6 +48,9 @@
       width: 64%;
       height: 50%;
       overflow: hidden;
+      /* for debugging: outline; remove if you want
+      outline: 1px dashed rgba(255,255,255,0.3);
+      */
     }
 
     .gift-image {
@@ -65,7 +69,7 @@
       image-rendering: pixelated;
     }
 
-    /* 👇 you add penguin-cursor.png next to index.html */
+    /* Desktop cursor for the snow mask (Pingiuno) */
     #maskCanvas {
       cursor: url("pixil-frame-0 (3).png") 16 16, auto;
     }
@@ -83,25 +87,40 @@
       text-align: center;
       max-width: 640px;
     }
+
+    /* Pingiuno sprite that follows mouse/finger (for mobile especially) */
+    #penguinSprite {
+      position: fixed;
+      width: 48px;
+      height: 48px;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 9999;
+      display: none;
+      image-rendering: pixelated;
+    }
   </style>
 </head>
 <body>
   <div class="frame">
-    <!-- pixel scene background (trees + snow) is drawn in JS on this canvas -->
+    <!-- Pixel background (trees, snow) -->
     <canvas id="bgCanvas" class="scene-bg"></canvas>
 
-    <!-- only this central area has the gift under the snow -->
+    <!-- Central pile: only here the gift is hidden -->
     <div class="gift-area">
-      <!-- replace gift.png with your actual filename -->
+      <!-- Your gift image -->
       <img src="G1000PFDHero_900x (1).webp" alt="Secret Gift" class="gift-image" />
     </div>
 
-    <!-- snow mask only over the pile zone -->
+    <!-- Snow mask over the pile -->
     <canvas id="maskCanvas"></canvas>
 
-    <!-- falling snow layer -->
+    <!-- Falling snow -->
     <canvas id="flakesCanvas"></canvas>
   </div>
+
+  <!-- Pingiuno sprite that follows touch/mouse (helps on mobile) -->
+  <img id="penguinSprite" src="pixil-frame-0 (3).png" alt="Pingiuno" />
 
   <div class="sign">
     HELP PINGIUNO CLEAR THE SNOW...
@@ -116,6 +135,8 @@
 
     const flakesCanvas = document.getElementById("flakesCanvas");
     const flakesCtx = flakesCanvas.getContext("2d");
+
+    const penguinSprite = document.getElementById("penguinSprite");
 
     let isDrawing = false;
     const brushRadius = 10; // small brush
@@ -149,7 +170,28 @@
       };
     }
 
-    // ---------- pixel trees + snow bg ----------
+    // ---------- Pingiuno sprite follow (for mobile + desktop) ----------
+    function showPenguinAt(x, y) {
+      if (!penguinSprite) return;
+      penguinSprite.style.display = "block";
+      penguinSprite.style.left = x + "px";
+      penguinSprite.style.top = y + "px";
+    }
+
+    document.addEventListener("mousemove", (e) => {
+      showPenguinAt(e.clientX, e.clientY);
+    });
+
+    document.addEventListener("touchmove", (e) => {
+      const t = e.touches[0];
+      showPenguinAt(t.clientX, t.clientY);
+    }, { passive: false });
+
+    document.addEventListener("touchend", () => {
+      if (penguinSprite) penguinSprite.style.display = "none";
+    });
+
+    // ---------- pixel trees + snow background (lush border) ----------
     function drawTree(ctx, cx, cy, scale) {
       // trunk
       ctx.fillStyle = "#3c281e";
@@ -177,7 +219,7 @@
       // sky gradient
       for (let y = 0; y < h; y++) {
         const ratio = y / h;
-        const c = Math.floor(16 + 40 * ratio);
+        const c = Math.floor(12 + 40 * ratio);
         bgCtx.strokeStyle = `rgb(${c},${c + 10},${c + 30})`;
         bgCtx.beginPath();
         bgCtx.moveTo(0, y);
@@ -192,17 +234,28 @@
       bgCtx.fillStyle = "#788aa8";
       bgCtx.fillRect(0, midY0, w, midY1 - midY0);
 
-      // top trees
-      for (let x = 40; x < w; x += 64) {
+      // top tree border (dense)
+      for (let x = 0; x < w + 32; x += 32) {
         drawTree(bgCtx, x, midY0 - 40, 1);
       }
-      // bottom trees
-      for (let x = 20; x < w; x += 64) {
+
+      // bottom tree border (dense)
+      for (let x = 0; x < w + 32; x += 32) {
         drawTree(bgCtx, x, midY1 + 20, 1);
+      }
+
+      // left side border
+      for (let y = midY0 + 10; y < midY1 - 10; y += 40) {
+        drawTree(bgCtx, 24, y, 1);
+      }
+
+      // right side border
+      for (let y = midY0 + 10; y < midY1 - 10; y += 40) {
+        drawTree(bgCtx, w - 24, y, 1);
       }
     }
 
-    // ---------- snow mask only over pile ----------
+    // ---------- snow mask only over central pile ----------
     function drawSnowMask() {
       const rect = maskCanvas.getBoundingClientRect();
       const w = rect.width;
@@ -222,7 +275,7 @@
         }
       }
 
-      // subtle top and bottom shading
+      // subtle top and bottom shading for pile
       maskCtx.fillStyle = "#eaf2ff";
       maskCtx.fillRect(pile.x, pile.y, pile.w, 4);
       maskCtx.fillStyle = "#9fb0cf";
@@ -235,11 +288,12 @@
       const y = clientY - rect.top;
       const pile = getPileRect();
 
+      // only erase inside the pile
       if (
         x < pile.x || x > pile.x + pile.w ||
         y < pile.y || y > pile.y + pile.h
       ) {
-        return; // only erase inside pile
+        return;
       }
 
       maskCtx.globalCompositeOperation = "destination-out";
@@ -248,7 +302,7 @@
       maskCtx.fill();
     }
 
-    // Mouse
+    // Mouse events
     maskCanvas.addEventListener("mousedown", (e) => {
       isDrawing = true;
       eraseAt(e.clientX, e.clientY);
@@ -263,7 +317,7 @@
       isDrawing = false;
     });
 
-    // Touch
+    // Touch events
     maskCanvas.addEventListener("touchstart", (e) => {
       e.preventDefault();
       isDrawing = true;
