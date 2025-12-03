@@ -64,9 +64,9 @@
       image-rendering: pixelated;
     }
 
-    /* Desktop custom cursor for snow mask */
+    /* Desktop custom cursor for snow mask – bigger hotspot */
     #maskCanvas {
-      cursor: url("pixil-frame-0 (3).png") 16 16, auto;
+      cursor: url("pixil-frame-0 (3).png") 32 32, auto;
     }
 
     #flakesCanvas {
@@ -83,11 +83,11 @@
       max-width: 640px;
     }
 
-    /* Pingiuno sprite for mobile */
+    /* Bigger Pingiuno sprite for mobile */
     #penguinSprite {
       position: fixed;
-      width: 48px;
-      height: 48px;
+      width: 64px;
+      height: 64px;
       pointer-events: none;
       transform: translate(-50%, -50%);
       z-index: 9999;
@@ -179,26 +179,65 @@
       });
     }
 
-    // ---- Bushy tree drawing ----
+    // ---- Detailed, bushy tree drawing ----
     function drawTree(ctx, cx, cy, scale) {
+      // shadow base
+      ctx.fillStyle = "#15231a";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + 18 * scale);
+      ctx.lineTo(cx - 12 * scale, cy + 22 * scale);
+      ctx.lineTo(cx + 12 * scale, cy + 22 * scale);
+      ctx.closePath();
+      ctx.fill();
+
       // trunk
-      ctx.fillStyle = "#3c281e";
+      ctx.fillStyle = "#3b281c";
       ctx.fillRect(cx - 2 * scale, cy + 8 * scale, 4 * scale, 10 * scale);
 
-      // more foliage layers to make it bushy
-      const colors = ["#1c3f2b", "#255738", "#2f7448", "#3c8b5a"];
-      const layers = colors.length;
-      for (let i = 0; i < layers; i++) {
-        ctx.fillStyle = colors[i];
-        const yy = cy - i * 5 * scale;
-        const half = (13 - i * 2) * scale; // wider base
+      // foliage layers (darker inside, lighter outside)
+      const foliage = [
+        { c: "#183326", w: 16, yOff: 10 },
+        { c: "#204a32", w: 20, yOff: 6 },
+        { c: "#29613f", w: 24, yOff: 2 },
+        { c: "#32774d", w: 28, yOff: -2 }
+      ];
+
+      foliage.forEach((layer, i) => {
+        ctx.fillStyle = layer.c;
+        const yy = cy - i * 4 * scale + layer.yOff * scale;
+        const half = (layer.w / 2) * scale;
         ctx.beginPath();
         ctx.moveTo(cx, yy - 7 * scale);
         ctx.lineTo(cx - half, yy + 7 * scale);
         ctx.lineTo(cx + half, yy + 7 * scale);
         ctx.closePath();
         ctx.fill();
-      }
+      });
+
+      // snowy caps (little white/blue triangles on top layers)
+      ctx.fillStyle = "#f3fbff";
+      const topY = cy - 4 * scale;
+      ctx.beginPath();
+      ctx.moveTo(cx, topY - 10 * scale);
+      ctx.lineTo(cx - 8 * scale, topY - 2 * scale);
+      ctx.lineTo(cx + 8 * scale, topY - 2 * scale);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#e0f0ff";
+      ctx.beginPath();
+      ctx.moveTo(cx - 10 * scale, topY + 2 * scale);
+      ctx.lineTo(cx - 4 * scale, topY + 6 * scale);
+      ctx.lineTo(cx - 1 * scale, topY + 2 * scale);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(cx + 10 * scale, topY + 2 * scale);
+      ctx.lineTo(cx + 4 * scale, topY + 6 * scale);
+      ctx.lineTo(cx + 1 * scale, topY + 2 * scale);
+      ctx.closePath();
+      ctx.fill();
     }
 
     function drawBackground() {
@@ -224,26 +263,26 @@
       bgCtx.fillStyle = "#788aa8";
       bgCtx.fillRect(0, midY0, w, midY1 - midY0);
 
-      // top border: two rows of trees, close together
-      for (let x = -16; x < w + 16; x += 24) {
-        drawTree(bgCtx, x, midY0 - 36, 1.1);
-        drawTree(bgCtx, x + 12, midY0 - 18, 1);
+      // Dense top border (two staggered rows)
+      for (let x = -16; x < w + 16; x += 22) {
+        drawTree(bgCtx, x, midY0 - 34, 1.1);
+        drawTree(bgCtx, x + 11, midY0 - 16, 1);
       }
 
-      // bottom border: two rows
-      for (let x = -16; x < w + 16; x += 24) {
+      // Dense bottom border
+      for (let x = -16; x < w + 16; x += 22) {
         drawTree(bgCtx, x + 10, midY1 + 26, 1.1);
-        drawTree(bgCtx, x, midY1 + 42, 1);
+        drawTree(bgCtx, x, midY1 + 40, 1);
       }
 
-      // left side border
-      for (let y = midY0 + 4; y < midY1 - 4; y += 26) {
-        drawTree(bgCtx, 24, y, 1.1);
+      // Left side border
+      for (let y = midY0 + 0; y < midY1 - 0; y += 24) {
+        drawTree(bgCtx, 26, y, 1.1);
       }
 
-      // right side border
-      for (let y = midY0 + 4; y < midY1 - 4; y += 26) {
-        drawTree(bgCtx, w - 24, y, 1.1);
+      // Right side border
+      for (let y = midY0 + 0; y < midY1 - 0; y += 24) {
+        drawTree(bgCtx, w - 26, y, 1.1);
       }
     }
 
